@@ -57,8 +57,8 @@ int main(void)
 {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const int screenWidth = 1080;
-    const int screenHeight = 1080;
+    const int screenWidth = 900;
+    const int screenHeight = 900;
 
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
     SetTargetFPS(60);
@@ -68,6 +68,7 @@ int main(void)
     Vector2 playerPos = {screenWidth/2, screenHeight/2};
     Vector2 playerVel = {0.0f, 0.0f};
     Vector2 playerAccel = {0.0f, 0.0f};
+    Vector2 playerRotation = {0.0f, 0.0f};
     float playerMaxSpeed = 100.0f;
     float playerTurningForce = 0.25f;
     
@@ -125,7 +126,7 @@ int main(void)
         //----------------------------------------------------------------------------------
         BeginDrawing();
 
-            ClearBackground(RAYWHITE);
+            ClearBackground(BLACK);
             
             DrawCircleV(playerPos, 10, RED);
             DrawText(TextFormat("Accel: (%.2f, %.2f)", playerAccel.x, playerAccel.y), 10, 10, 16, BLACK);

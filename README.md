@@ -1,53 +1,41 @@
 # Asteroids Survival
 
-
-I developed Asteroids Survival as a miniature browser game, built in C using Raylib, and compiled to WebAssembly via Emsciptem, allowing the project to run in the browser with no plugins. In the game the player controls a ship using momentum based movement, avoiding incoming enemies which home onto their location. To kill the enemies, the player must dodge them and get them to crash into each other.
+I developed Asteroids Survival as a miniature browser game, built in C using Raylib, and compiled to WebAssembly via Emscripten, allowing the project to run in the browser with no plugins. In the game the player controls a ship using momentum-based movement, avoiding incoming enemies which home onto their location. To kill the enemies, the player must dodge them and get them to crash into each other.
 
 ---
 
 ## Gameplay & Features
 
-* **Controls & Handling:** The player has control of thrust and rotation using the W, A, and D keys, which is used to apply acceleration and velocity.
-* **Enemy AI:** Enemies spawn along the edges of the screen periodically and are given slightly random speed and acceleration values, then they path-find directly towards the player. Killing the player on impact if they reach them.
+* **Controls & Handling:** The player controls thrust and rotation using the W, A, and D keys to build up acceleration and velocity. The ship drifts with momentum rather than stopping instantly, requiring careful planning around screen boundaries.
+* **Enemy AI:** Enemies spawn periodically along the edges of the screen with slightly randomized speed and acceleration values, then path-find directly toward the player. If an enemy touches the ship, the player dies instantly.
 * **Scoring Breakdown:**
-  * **Enemy Collision:** If two enemies collide, they are both removed and the player is awarded 200 points.
-  * **Near Miss:** If the player goes close enough to an enemy and survives, they are awarded 50 points.
-* **Visual Feedback**: When points are awarded, they appear briefly on the screen with particle effects and screen shake when enemies collide.
+* **Enemy Collision (+200 pts):** When two enemies crash into each other, both are destroyed and the player earns 200 points.
+* **Near Miss (+50 pts):** Skimming close to an enemy without making contact awards a 50-point graze bonus.
+
+
+* **Visual Feedback:** Score pop-ups appear briefly at the exact point of impact or near-miss. Enemy collisions trigger particle bursts and camera shake to give hits weight without needing heavy sprite assets.
+* **Game Flow:** Starts with a name-entry prompt for the player's name. On death, the run ends immediately, shaking the screen, submitting the run to the online database, and pulling the latest top 10 leaderboard entries onto the screen.
 
 ---
 
 ## Technical Stack & Architecture
 
-> **Note:** Outline the tools and explain the technical bridge between native C and browser APIs.
-
-* **Language & Engine:** C (C99) using [raylib](https://www.raylib.com/) (`PLATFORM_WEB` / OpenGL ES 2.0).
-* **Target:** WebAssembly (`wasm32-unknown-emscripten`) compiled with the Emscripten SDK.
-* **Rendering:** Pure procedural vector geometry (triangles, circles, lines) rendered dynamically without external sprite sheets or textures.
+* **Language & Engine:** C (C99 standard) using [raylib](https://www.raylib.com/) configured with `PLATFORM_WEB` and OpenGL ES 2.0.
+* **Target:** WebAssembly built with the Emscripten SDK.
+* **Rendering:** Purely vector geometry. Everything from the player triangle to enemies, particle bursts, and boundary lines is drawn using Raylib's primitive shape calls, completely skipping external image textures.
 * **Web Request Architecture:**
-* **Backend Service:** [Specify your backend, e.g., serverless Cloudflare Worker with KV storage managing a global top-10 leaderboard].
-* **C-to-Browser Bridge:** [Explain how you dispatch web requests without blocking the game thread: e.g., using Emscripten JS interop like `emscripten_run_script`, `_malloc`, `stringToUTF8`, and `EMSCRIPTEN_KEEPALIVE` exported functions to trigger asynchronous browser `fetch()` calls].
+* **Backend Service:** A serverless Cloudflare Worker paired with Cloudflare KV storage, maintaining a global leaderboard capped at the top 10 runs.
+* **C-to-Browser Bridge:** To handle HTTP requests without freezing Raylib's frame loop, I used Emscripten's JavaScript interop layer (`emscripten_run_script`, `_malloc`, `stringToUTF8`, and `EMSCRIPTEN_KEEPALIVE`). C triggers an asynchronous browser `fetch()` call in JavaScript, and once the JSON response resolves, JavaScript passes the leaderboard strings back into C memory to populate the UI.
 
 
 
 ---
 
-## Prerequisites
-
-> **Note:** List every tool needed to build and run the game locally.
-
-1. **Python 3.x:** Required for Emscripten utilities and local development hosting. (Ensure Python is on your system `PATH`).
-2. **Emscripten SDK (`emsdk`):** Installed and ready to activate.
-3. **Raylib Static Web Library (`libraylib.a`):** Compiled from source targeting `PLATFORM_WEB`.
-
----
-
-## Compiling with Emscripten (`emcc`)
-
-> **Note:** Provide exact, repeatable commands. Document the one-time library build, the full game compilation command, and the meaning of your critical compiler flags.
+## Compiling with Emscripten
 
 ### 1. Build the Raylib Web Library (One-Time Setup)
 
-Navigate to the Raylib source directory (e.g., `raylib/src`) and compile the static library for the web target:
+Navigate to the Raylib source directory (`raylib/src`) and compile the static library for WebAssembly:
 
 ```cmd
 emcc -c rcore.c rshapes.c rtextures.c rtext.c rmodels.c raudio.c -Os -Wall -DPLATFORM_WEB -DGRAPHICS_API_OPENGL_ES2
@@ -57,17 +45,17 @@ emar rcs libraylib.a rcore.o rshapes.o rtextures.o rtext.o rmodels.o raudio.o
 
 ### 2. Compile the Game
 
-Activate the Emscripten environment, navigate to your build directory, and compile the C source into WebAssembly:
+Open your terminal, activate the Emscripten environment, and build the project:
 
 ```cmd
 :: 1. Activate Emscripten environment
 C:\path\to\emsdk\emsdk_env.bat
 
-:: 2. Move to the directory containing libraylib.a and your shell HTML file
-cd path\to\build_folder
+:: 2. Move to the directory containing libraylib.a and minshell.html
+cd D:\RayLib\raylib\src
 
 :: 3. Compile source code to WebAssembly
-emcc -o index.html "path\to\your\main.c" ^
+emcc -o index.html "C:\path\to\your\project\main.c" ^
     -Os -Wall ^
     -DPLATFORM_WEB ^
     -I. libraylib.a ^
@@ -81,65 +69,54 @@ emcc -o index.html "path\to\your\main.c" ^
 
 ```
 
-> **Note on Compiler Flags:**
-> * `-DPLATFORM_WEB`: Configures Raylib to use browser canvas contexts and event hooks.
-> * `-s ASYNCIFY`: Allows C code to wait on asynchronous JS operations without stalling the browser loop.
-> * `-s EXPORTED_FUNCTIONS` & `-s EXPORTED_RUNTIME_METHODS`: Exposes C entry points and memory helpers so your JavaScript bridge can pass network data back into C.
-> * `--shell-file`: Uses a custom minimal HTML template hosting the canvas element.
-> 
-> 
-
 #### Build Output:
 
-* `index.html`: Web harness and Canvas container.
-* `index.js`: JavaScript bridge, loader, and runtime helpers.
-* `index.wasm`: Compiled WebAssembly game binary.
+* `index.html`: The web shell hosting the canvas element.
+* `index.js`: The bridge handling runtime initialization and web fetch interop.
+* `index.wasm`: The compiled C game binary.
 
 ---
 
 ## Local Development: Serving & Playing in a Browser
 
-> **Note:** Browsers block WebAssembly from running directly off the filesystem (`file://`) due to CORS security restrictions. Running a local HTTP server is required.
+Web browsers block WebAssembly files from loading directly over `file://` URIs due to CORS security rules, so you need a local web server to run the build.
 
-Run the built-in Python HTTP server from the folder containing your compiled build files:
+From the folder containing your compiled build files (`index.html`, `index.js`, and `index.wasm`), run:
 
 ```bash
-# Start local development server on port 8000
 python3 -m http.server 8000
 
 ```
 
-*(On Windows systems using standard Python aliases, you can run `python -m http.server 8000`.)*
-
 ### How to Test:
 
-1. Open your browser and navigate to: `http://localhost:8000/index.html`
-2. **Clear Cache:** Use **Ctrl + F5** (or **Cmd + Shift + R** on macOS) after compiling new builds so your browser does not serve an older cached `.wasm` binary.
-3. **Inspect Output:** Press **F12** to open the browser Developer Tools. Monitor the **Console** and **Network** tabs to verify asset loading and watch network log entries (e.g., checking that score submissions complete successfully).
-4. **Stop Server:** Terminate the local server anytime in your terminal with **Ctrl + C**.
+1. Open your browser and go to `http://localhost:8000/index.html`.
+2. Press **Ctrl + F5** after compiling new changes to force a hard refresh so the browser does not load a cached `.wasm` binary.
+3. Press **F12** to open the developer console to monitor asset loading and inspect network responses (`Score saved:`).
+4. Shut down the server anytime in your terminal with **Ctrl + C**.
 
 ---
 
 ## Web Request Source & Leaderboard API
 
-> **Note:** Clearly document the backend architecture, the API host, transport mechanism, and payload schemas used for network communication.
+The game talks to a dedicated serverless Cloudflare Worker to persist and fetch global high scores.
 
-* **API Base URL:** `https://[your-subdomain].[worker-or-server].dev`
-* **Backend Platform:** [e.g., Cloudflare Workers + Cloudflare KV Storage]
-* **Transport Mechanism:** Asynchronous browser `fetch()` requests invoked through Emscripten's JavaScript interop layer.
+* **API Base URL:** `[https://asteroids-leaderboard.2402521.workers.dev](https://asteroids-leaderboard.2402521.workers.dev)`
+* **Backend Platform:** Cloudflare Workers with Cloudflare KV storage.
+* **Transport Mechanism:** Asynchronous browser `fetch()` calls executed via Emscripten's JavaScript interop layer.
 
 ### Endpoints
 
 #### 1. Submit Player Score (`POST /`)
 
-Dispatched on game over. The backend receives the payload, saves the entry to persistent storage, sorts all entries descending, trims the set to the top 10, and returns the updated leaderboard.
+Called automatically when the player dies. The worker saves the name and score, sorts all records in descending order, trims the list down to the top 10, and returns the updated leaderboard.
 
 * **Request Headers:** `Content-Type: application/json`
 * **Request Payload:**
 
 ```json
 {
-  "player": "Callsign",
+  "player": "AcePilot",
   "score": 1450
 }
 
@@ -152,7 +129,7 @@ Dispatched on game over. The backend receives the payload, saves the entry to pe
   "success": true,
   "scores": [
     {
-      "player": "Callsign",
+      "player": "AcePilot",
       "score": 1450,
       "date": 1713800000000
     }
@@ -163,14 +140,14 @@ Dispatched on game over. The backend receives the payload, saves the entry to pe
 
 #### 2. Fetch Leaderboard (`GET /`)
 
-Called during game startup and immediately following player death to populate the in-game high-score overlay.
+Called when the game first boots up and after every death to refresh the top scores displayed on screen.
 
 * **Success Response (`200 OK`):**
 
 ```json
 [
   {
-    "player": "Callsign",
+    "player": "AcePilot",
     "score": 1450,
     "date": 1713800000000
   }
@@ -180,15 +157,5 @@ Called during game startup and immediately following player death to populate th
 
 ---
 
-## Publishing to itch.io
-
-> **Note:** Step-by-step checklist for packaging the WebAssembly output into a ready-to-deploy zip archive.
-
-1. Locate your three build artifacts: `index.html`, `index.js`, and `index.wasm`.
-2. Select all three files and zip them directly into the root of an archive (e.g., `game.zip`). **Do not** put them inside a parent folder before zipping.
-3. Open [itch.io](https://itch.io/) and create a new project.
-4. Set **Kind of project** to **HTML (You have a ZIP or HTML file that will be played in the browser)**.
-5. Upload `game.zip` under the **Uploads** section and check **This file will be played in the browser**.
-6. Set the embedded viewport dimensions to **900 px width** by **900 px height** (or match your canvas resolution).
-7. Enable **Automatically start on page load**.
-8. Save and publish.
+### AI Declaration
+AI model Gemini 3.8 flash was used for modifying the source code and the readme document.

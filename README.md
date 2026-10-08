@@ -1,5 +1,7 @@
 # Asteroids Survival
 
+![GameGif](20261008-2047-15.0457870.gif)
+
 I developed Asteroids Survival as a miniature browser game, built in C using Raylib, and compiled to WebAssembly via Emscripten, allowing the project to run in the browser with no plugins. In the game the player controls a ship using momentum-based movement, avoiding incoming enemies which home onto their location. To kill the enemies, the player must dodge them and get them to crash into each other.
 
 ---
